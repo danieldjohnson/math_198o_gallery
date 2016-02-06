@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+<title>Interactive Gallery</title>
+<style>
+
+#help{
+/*  position:absolute;
+  top:0;
+  left:0;
+  right:0;*/
+  text-align: center;
+}
+
+path.polygon {
+  stroke: #000;
+  fill: #eee;
+  line-width: 5px;
+}
+path.triangulation {
+  stroke: #797;
+  fill: transparent;
+  line-width: 4px;
+  pointer-events:none;
+}
+path.guard_vis {
+  stroke: transparent;
+  fill: rgba(255,0,0,0.3);
+  pointer-events:none;
+}
+
+circle.polygon_v {
+  fill: #00F;
+}
+circle.guard {
+  fill: #000;
+}
+
+</style>
+</head>
+<body>
+<div id="help">
+Click inside the polygon to spawn new guards.</br>
+Click any existing guard or vertex to remove it.</br>
+Drag any point to move it, and shift-drag on a polygon vertex to add a new vertex.</br>
+Finally, click <a href="#" id="triangulater">here</a> to automatically place guards.
+</div>
+<script src="//d3js.org/d3.v3.min.js"></script>
+<script>
+
+var width = 960,
+    height = 500;
+
+var polygon = [[300,300], [600,300], [450,450]];
+
+var VERT_MODE_MOVE = 0, VERT_MODE_INS = 1, VERT_MODE_DEL = 2;
+var polygon_vert_mode = VERT_MODE_MOVE;
+
+var guards = [[450,375], [500,375], [550,375]];
+var guard_vis = [ [[300,300], [400,300], [450,450]], [[350,300], [600,300], [450,450]], [[325,300], [400,300], [500,450]] ];
+
+var triangulation = [[[300,300], [450,300], [450,450]], [[450,300], [600,300], [450,450]]];
+
+//////////////////////////
+
+function dragmove(d,i) {
+  console.log("Drag");
+  d[0] += d3.event.dx;
+  d[1] += d3.event.dy;
+
+  if(d[0]<0) d[0]=0;
+  if(d[0]>width) d[0]=width;
+  if(d[1]<0) d[1]=0;
+  if(d[1]>width) d[1]=height;
+
+  d3.select(this).attr("transform", function(d,i){
+    return "translate(" + d + ")"
+  });
+  triangulation = [];
+  update();
+}
+
+function drag_spawnpoly(d,i) {
+  console.log("Start");
+  if(d3.event.sourceEvent.shiftKey){
+    console.log("Drag spawn!");
+    var copy = d.slice();
+    polygon.splice(i,0,copy);
+  }
+  update();
+}
+
+var drag = d3.behavior.drag()
+        .on("drag", dragmove);
+
+var dragspawn = d3.behavior.drag()
+        .on("drag", dragmove)
+        .on("dragstart",drag_spawnpoly);
+
+function click_to_remove(x, sourcearray, min){
+  min = min | 0;
+  x.on("click.to_rem", function(d,i){
+    if (d3.event.defaultPrevented) return;
+    if (sourcearray.length <= min) return;
+    sourcearray.splice(i,1);
+    update();
+  });
+}
+
+function click_spawn_guard(x){
+  x.on("click.spawn", function(d,i){
+    if (d3.event.defaultPrevented) return;
+    pos = d3.mouse(svg[0][0]);
+    guards.push(pos);
+    update();
+  });
+}
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+
+var polygon_path = svg.append("g").selectAll("path.polygon");
+var triangulation_path = svg.append("g").selectAll("path.triangulation");
+var guard_vis_path = svg.append("g").selectAll("path.guard_vis");
+var polygon_verts = svg.append("g").selectAll("circle.polygon_v");
+var guard_verts = svg.append("g").selectAll("circle.guard");
+
+update();
+
+function check_polygon(poly){
+  // STUB: Should return true if polygon is simple
+  // (doesn't cross itself) and clockwise-oriented
+  return true;
+}
+
+function check_inside(point,poly){
+  // STUB: Return true if the [x,y] point is in the polygon, which
+  // is guaranteed to be simple.
+  return true;
+}
+
+function generate_guard_vis(guard,poly){
+  // STUB: Given a [x,y] guard position (guaranteed inside the polygon),
+  // should return a polygon of the form
+  // [[x1,y1],[x2,y2],...]
+  // that represents the guard's visibility as a simple,
+  // clockwise-oriented polygon
+  var x = guard[0];
+  var y = guard[1];
+  return [[x-10,y-10],[x+10,y-10],[x,y+10]];
+}
+
+function generate_triangulation_and_guard_pos(poly){
+  // STUB: Triangulate the polygon, place guards, and return
+  // [triangulation, guard posns]
+  // where triangulation is an array of triangles
+  // [[x1,y1],[x2,y2],[x3,y3]]
+  // and guard posns is an array of points [x,y]
+  g = [[450,375], [500,375], [550,375]];
+  t = [[[300,300], [450,300], [450,450]], [[450,300], [600,300], [450,450]]];
+  return [t,g];
+}
+
+document.getElementById("triangulater").addEventListener("click", function(){
+  t_g = generate_triangulation_and_guard_pos(polygon);
+  triangulation = t_g[0];
+  guards = t_g[1];
+  update();
+});
+
+function update(){
+  if(check_polygon(polygon)){
+    guard_vis = [];
+    for (var i = 0; i < guards.length; i++) {
+      var guard = guards[i];
+      if(check_inside(guard,polygon)){
+        guard_vis.push(generate_guard_vis(guard,polygon));
+      }
+    }
+  }else{
+    guard_vis = [];
+  }
+
+  redraw();
+}
+
+function redraw(){
+  polygon_path = polygon_path.data([polygon]);
+  polygon_path.exit().remove();
+  polygon_path.enter().append("path").attr("class","polygon");
+  polygon_path.attr("d", poly_d_fn)
+      .call(click_spawn_guard);
+
+  triangulation_path = triangulation_path.data(triangulation);
+  triangulation_path.exit().remove();
+  triangulation_path.enter().append("path").attr("class","triangulation");
+  triangulation_path.attr("d", poly_d_fn);
+
+  guard_vis_path = guard_vis_path.data(guard_vis);
+  guard_vis_path.exit().remove();
+  guard_vis_path.enter().append("path").attr("class","guard_vis");
+  guard_vis_path.attr("d", poly_d_fn);
+  
+  polygon_verts = polygon_verts.data(polygon);
+  polygon_verts.exit().remove();
+  polygon_verts.enter().append("circle");
+  polygon_verts.attr("class","polygon_v")
+      .attr("transform", function(d) { return "translate(" + d + ")"; })
+      .attr("r", 5)
+      .call(dragspawn).call(click_to_remove,polygon,3);
+
+  guard_verts = guard_verts.data(guards);
+  guard_verts.exit().remove();
+  guard_verts.enter().append("circle");
+  guard_verts.attr("class","guard")
+      .attr("transform", function(d) { return "translate(" + d + ")"; })
+      .attr("r", 5)
+      .call(drag).call(click_to_remove,guards);
+}
+
+function poly_d_fn(d) {
+  return "M" + d.join("L") + "Z";
+}
+
+</script>
+</body>
+</html>
