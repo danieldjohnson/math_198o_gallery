@@ -54,13 +54,13 @@ Finally, click <a href="#" id="triangulater">here</a> to automatically place gua
 var width = 960,
     height = 500;
 
-var polygon = [[300,300], [600,300], [450,450]];
+var polygon = [[300,300],[600, 300],[450, 450]];
 var polygon_is_good = true;
 
-var guards = [[450,375], [500,375], [550,325]];
-var guard_vis = [ [[300,300], [400,300], [450,450]], [[350,300], [600,300], [450,450]], [[325,300], [400,300], [500,450]] ];
+var guards = [[450,375]];
+var guard_vis = [];
 
-var triangulation = [[[300,300], [450,300], [450,450]], [[450,300], [600,300], [450,450]]];
+var triangulation = [];
 
 //////////////////////////
 
@@ -311,16 +311,141 @@ function generate_guard_vis(guard,poly){
 
 }
 
-function generate_triangulation_and_guard_pos(poly){
-  // STUB: Triangulate the polygon, place guards, and return
-  // [triangulation, guard posns]
-  // where triangulation is an array of triangles
-  // [[x1,y1],[x2,y2],[x3,y3]]
-  // and guard posns is an array of points [x,y]
-  g = [[450,375], [500,375], [550,375]];
-  t = [[[300,300], [450,300], [450,450]], [[450,300], [600,300], [450,450]]];
-  return [t,g];
+function trim_ear(poly){
+  // Returns [ear, newPoly] where ear is a triangle
+  // and newPoly is poly with the ear removed
+
+  var ear = [];
+  var newPoly = [];
+
+  // The case where the ear is [poly[0], poly[1], poly[length-1]]
+  // is awkward. Luckily, the polygon has two ears, so we can
+  // just avoid checking this triangle. This means the for loop
+  // doesn't hit the first and last elements.
+  for (var i = 1; i < poly.length - 1; i++) {
+    var maybe_ear = [];
+    maybe_ear.push(poly[i - 1]);  // Left corner
+    maybe_ear.push(poly[i]);      // Ear tip
+    maybe_ear.push(poly[i + 1]);; // Right corner
+    var maybe_ear_angle = vector_angle(
+            poly[i][0] - poly[i-1][0], poly[i][1] - poly[i-1][1],
+            poly[i+1][0] - poly[i][0], poly[i+1][1] - poly[i][1]);
+
+    // Check whether the candidate is actually an ear.
+    for (var j = 0; j < poly.length; j++) {
+      // If a vertex is inside the ear candidate and
+      // it does not belong to the ear candidate OR
+      // if we have an "inverse ear" we need to break
+      // and try a new candidate ear
+      if ((j !== i - 1 &&
+           j !== i &&
+           j !== i + 1 && 
+           check_inside(poly[j], maybe_ear)) ||
+           maybe_ear_angle < 0) {
+        break;
+      }
+    }
+    if (j === poly.length) {
+      // If we get here, the candidate is an ear.
+      ear = maybe_ear;
+      newPoly = poly.slice();
+      newPoly.splice(i, 1); // Remove the ear
+      return [ear, newPoly];
+    }
+  }
+  console.log("not returdnre");
 }
+
+function triangulate_and_color(poly){
+  // Returns [t, colorDict] where t is a set of
+  // triangles and colorDict is a mapping of 
+  // colors to vertices of poly
+
+  var copy = poly.slice();
+  var ear_stack = [];
+  var colorDict = {};
+  var t = [];
+
+  // Trim ears and put them on a stack
+  while (copy.length > 2) {
+    var trimmed = trim_ear(copy);
+    ear_stack.push(trimmed[0]);
+    copy = trimmed[1];
+  }
+
+  t = ear_stack.slice();
+
+  // Color the first triangle arbitrarily
+  var earToColor = ear_stack.pop();
+  for (var i = 0; i < 3; i++) {
+    colorDict[earToColor[i]] = i;
+  }
+
+  // Pop ears, color them, put the vertices in the dictionary
+  while (ear_stack.length > 0) {
+    // colorTracker[i] is true if color i has been used
+    var colorTracker = [false, false, false];
+    var newlyAddedVertex = [];
+    earToColor = ear_stack.pop();
+    for (var i = 0; i < 3; i++) {
+      if (earToColor[i] in colorDict) {
+        colorTracker[colorDict[earToColor[i]]] = true;
+      }
+      else {
+        newlyAddedVertex = earToColor[i];
+      }
+    }
+    // The missing color will be the only false left in the array
+    colorDict[newlyAddedVertex] = colorTracker.indexOf(false);
+  }
+
+  return [t, colorDict];
+}
+
+function minimal_color(colorDict) {
+  // Returns the int representing the least frequently-used
+  // vertex color in colorDict
+  var colorCount = [0, 0, 0];
+  for (var i in colorDict) {
+    colorCount[colorDict[i]]++;
+  }
+  return colorCount.indexOf(Math.min.apply(Math, colorCount));
+}
+
+function generate_triangulation_and_guard_pos(poly){
+  // Triangulate the polygon, place guards, and return
+  // [t, g] where t is an array of triangles
+  // [[x1,y1],[x2,y2],[x3,y3]]
+  // and g is an array of points [x,y]
+  var t_and_c = triangulate_and_color(poly);
+  var t = t_and_c[0];
+  var c = t_and_c[1];
+  var g = [];
+
+  // Place guards on the vertices of least frequent color
+  var guardColor = minimal_color(t_and_c[1]);
+
+  for (var i = 0; i < poly.length; i++) {
+    var point = poly[i];
+    // Figure out how to bump the guard position to avoid
+    // guards exactly on vertices
+    var prevVertex = poly[(i - 1 + poly.length)%poly.length];
+    var nextVertex = poly[(i + 1)%poly.length];
+    var bumpAngle = vector_angle(point[0] - prevVertex[0], point[1] - prevVertex[1], 
+                                 nextVertex[0] - point[0], nextVertex[1] - point[1]);
+    bumpAngle = (bumpAngle + Math.PI)/2;
+    var baseAngle = Math.atan2(point[1] - prevVertex[1], point[0] - prevVertex[0]);
+    console.log("Baseangle is ", baseAngle);
+    bumpAngle += baseAngle;
+    console.log("bumpAngle is ", bumpAngle);
+    var guardPoint = [point[0] + Math.cos(bumpAngle), point[1] + Math.sin(bumpAngle)];
+    console.log("guardpoint is ", guardPoint);
+    if (c[point] === guardColor) {
+      g.push(guardPoint);
+    }
+  }
+  return [t,g];
+};
 
 document.getElementById("triangulater").addEventListener("click", function(){
   t_g = generate_triangulation_and_guard_pos(polygon);
