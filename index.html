@@ -82,6 +82,8 @@ function dragmove(d,i) {
 }
 
 function drag_removeguards(){
+  var good = check_simple(polygon) && check_clockwise(polygon);
+  if(!good) return;
   for (var i = 0; i < guards.length; i++) {
     var g = guards[i];
     if(!check_inside(g,polygon)){
