@@ -36,17 +36,20 @@ circle.polygon_v {
   fill: #00F;
 }
 circle.guard {
-  fill: #000;
+  fill: #F00;
+  stroke: #000;
+  line-width:1px;
 }
 
 </style>
 </head>
 <body>
 <div id="help">
-Click inside the polygon to spawn new guards.</br>
-Click any existing guard or vertex to remove it.</br>
-Drag any point to move it, and shift-drag on a polygon vertex to add a new vertex.</br>
-Finally, click <a href="#" id="triangulater">here</a> to automatically place guards.
+Click inside the polygon to spawn new guards.<br>
+Click any existing guard or vertex to remove it.<br>
+Drag any point to move it, and shift-drag on a polygon vertex to add a new vertex.<br>
+Finally, click <a href="#" id="triangulater">here</a> to automatically triangulate the polygon<br>
+and place guards according to a 3-coloring of the triangulation.
 </div>
 <script src="//d3js.org/d3.v3.min.js"></script>
 <script>
@@ -499,7 +502,7 @@ function redraw(){
   polygon_verts.enter().append("circle");
   polygon_verts.attr("class","polygon_v")
       .attr("transform", function(d) { return "translate(" + d + ")"; })
-      .attr("r", 5)
+      .attr("r", 6)
       .call(dragpoly).call(click_to_remove,polygon,3);
 
   guard_verts = guard_verts.data(guards);
@@ -507,7 +510,7 @@ function redraw(){
   guard_verts.enter().append("circle");
   guard_verts.attr("class","guard")
       .attr("transform", function(d) { return "translate(" + d + ")"; })
-      .attr("r", 5)
+      .attr("r", 4)
       .call(dragguard).call(click_to_remove,guards);
 }
 
