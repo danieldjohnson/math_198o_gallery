@@ -57,7 +57,7 @@ var width = 960,
 var polygon = [[300,300], [600,300], [450,450]];
 var polygon_is_good = true;
 
-var guards = [[450,375], [500,375], [550,375]];
+var guards = [[450,375], [500,375], [550,325]];
 var guard_vis = [ [[300,300], [400,300], [450,450]], [[350,300], [600,300], [450,450]], [[325,300], [400,300], [500,450]] ];
 
 var triangulation = [[[300,300], [450,300], [450,450]], [[450,300], [600,300], [450,450]]];
@@ -81,6 +81,18 @@ function dragmove(d,i) {
   update();
 }
 
+function drag_removeguards(){
+  for (var i = 0; i < guards.length; i++) {
+    var g = guards[i];
+    if(!check_inside(g,polygon)){
+      console.log("Guard dragged out!");
+      guards.splice(i,1);
+      i--;
+    }
+  };
+  update();
+}
+
 function drag_spawnpoly(d,i) {
   console.log("Start");
   if(d3.event.sourceEvent.shiftKey){
@@ -91,12 +103,14 @@ function drag_spawnpoly(d,i) {
   update();
 }
 
-var drag = d3.behavior.drag()
-        .on("drag", dragmove);
-
-var dragspawn = d3.behavior.drag()
+var dragguard = d3.behavior.drag()
         .on("drag", dragmove)
-        .on("dragstart",drag_spawnpoly);
+        .on("dragend",drag_removeguards);
+
+var dragpoly = d3.behavior.drag()
+        .on("drag", dragmove)
+        .on("dragstart",drag_spawnpoly)
+        .on("dragend",drag_removeguards);
 
 function click_to_remove(x, sourcearray, min){
   min = min | 0;
@@ -287,7 +301,7 @@ function redraw(){
   polygon_verts.attr("class","polygon_v")
       .attr("transform", function(d) { return "translate(" + d + ")"; })
       .attr("r", 5)
-      .call(dragspawn).call(click_to_remove,polygon,3);
+      .call(dragpoly).call(click_to_remove,polygon,3);
 
   guard_verts = guard_verts.data(guards);
   guard_verts.exit().remove();
@@ -295,7 +309,7 @@ function redraw(){
   guard_verts.attr("class","guard")
       .attr("transform", function(d) { return "translate(" + d + ")"; })
       .attr("r", 5)
-      .call(drag).call(click_to_remove,guards);
+      .call(dragguard).call(click_to_remove,guards);
 }
 
 function poly_d_fn(d) {
