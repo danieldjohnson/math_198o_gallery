@@ -17,6 +17,9 @@ path.polygon {
   fill: #eee;
   line-width: 5px;
 }
+path.polygon.bad {
+  fill: transparent;
+}
 path.triangulation {
   stroke: #797;
   fill: transparent;
@@ -52,9 +55,7 @@ var width = 960,
     height = 500;
 
 var polygon = [[300,300], [600,300], [450,450]];
-
-var VERT_MODE_MOVE = 0, VERT_MODE_INS = 1, VERT_MODE_DEL = 2;
-var polygon_vert_mode = VERT_MODE_MOVE;
+var polygon_is_good = true;
 
 var guards = [[450,375], [500,375], [550,375]];
 var guard_vis = [ [[300,300], [400,300], [450,450]], [[350,300], [600,300], [450,450]], [[325,300], [400,300], [500,450]] ];
@@ -128,16 +129,87 @@ var guard_verts = svg.append("g").selectAll("circle.guard");
 
 update();
 
-function check_polygon(poly){
+function determinant(a,b,c,d){
+  return a*d - b*c;
+}
+
+function intersect_edges(a1,a2,b1,b2){
+  // s a1x + (1-s) a2x = t b1x + (1-t) a2x
+  var a = a1[0];
+  var b = a2[0]-a1[0];
+  var c = b1[0];
+  var d = b2[0]-b1[0];
+  var e = a1[1];
+  var f = a2[1]-a1[1];
+  var g = b1[1];
+  var h = b2[1]-b1[1];
+
+  var det = determinant(b,-d,f,-h);
+  var a_time = determinant(c-a,-d,g-e,-h)/det;
+  var b_time = determinant(b,c-a,f,g-e)/det;
+
+  return {a:a_time,b:b_time};
+}
+
+function vector_angle(x1,y1,x2,y2){
+  var dot = x1*x2 + y1*y2;
+  var cross_z = x1*y2 - y1*x2;
+  var angle = Math.atan2(cross_z,dot);
+  return angle;
+}
+
+function check_simple(poly){
   // STUB: Should return true if polygon is simple
-  // (doesn't cross itself) and clockwise-oriented
+  // (doesn't cross itself)
+  for (var i = 0; i < poly.length; i++) {
+    var v1 = poly[i];
+    var v2 = poly[(i+1)%poly.length];
+    var j = 0;
+    if(i==poly.length-1) j=1;
+    for (; j < i-1; j++) {
+      var v3 = poly[j];
+      var v4 = poly[(j+1)%poly.length];
+      var ires = intersect_edges(v1,v2,v3,v4);
+      if(!(ires.a < 0 || ires.a > 1 || ires.b < 0 || ires.b > 1)){
+        return false;
+      }
+    }
+  };
   return true;
 }
 
+function check_clockwise(poly){
+  var cum_ang = 0;
+  for (var i = 0; i < poly.length; i++) {
+    var v1 = poly[i];
+    var v2 = poly[(i+1)%poly.length];
+    var v3 = poly[(i+2)%poly.length];
+    cum_ang += vector_angle(v2[0]-v1[0],v2[1]-v1[1],v3[0]-v2[0],v3[1]-v2[1]);
+  };
+  console.log(cum_ang);
+  return cum_ang > 0;
+}
+
 function check_inside(point,poly){
-  // STUB: Return true if the [x,y] point is in the polygon, which
+  // Return true if the [x,y] point is in the polygon, which
   // is guaranteed to be simple.
-  return true;
+  var EPSILON = 0.000001;
+  var end = [point[0], 2*height];
+  var num_intersects = 0;
+  for (var i = 0; i < poly.length; i++) {
+    var v1 = poly[i];
+    var v2 = poly[(i+1)%poly.length];
+    // bump them if they are in line with the guard
+    if(v1[0]==point[0]) v1=[v1[0]+EPSILON, v1[1]];
+    if(v2[0]==point[0]) v2=[v2[0]+EPSILON, v2[1]];
+
+    var ires = intersect_edges(point,end,v1,v2);
+    if(ires.a>=0 && ires.b >= 0 && ires.b < 1){
+      num_intersects++;
+    }
+  };
+  console.log(num_intersects);
+  return (num_intersects%2) == 1;
 }
 
 function generate_guard_vis(guard,poly){
@@ -170,7 +242,8 @@ document.getElementById("triangulater").addEventListener("click", function(){
 });
 
 function update(){
-  if(check_polygon(polygon)){
+  polygon_is_good = check_simple(polygon) && check_clockwise(polygon);
+  if(polygon_is_good){
     guard_vis = [];
     for (var i = 0; i < guards.length; i++) {
       var guard = guards[i];
@@ -191,6 +264,12 @@ function redraw(){
   polygon_path.enter().append("path").attr("class","polygon");
   polygon_path.attr("d", poly_d_fn)
       .call(click_spawn_guard);
+
+  if(polygon_is_good){
+    polygon_path.attr("class", "polygon");
+  }else{
+    polygon_path.attr("class", "polygon bad");
+  }
 
   triangulation_path = triangulation_path.data(triangulation);
   triangulation_path.exit().remove();
