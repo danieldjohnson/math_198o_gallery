@@ -16,8 +16,8 @@ To compute the region visible to a specific guard, we need to determine what obs
 
 1. Sort the vertices by angle around the guard (O(n log n)).
 2. Iterate through the vertices in increasing angle. For each vertex, (overall O(n^2))
-    a. Cast a ray from the guard to that vertex and record the closest  intersection (by checking the ray against every edge). (O(n))
-    b. Determine how far the guard can see on either side of the vertex (O(1))
+    + Cast a ray from the guard to that vertex and record the closest  intersection (by checking the ray against every edge). (O(n))
+    + Determine how far the guard can see on either side of the vertex (O(1))
         - If the ray hits an edge before hitting the vertex, add the edge intersection point to the visibility polygon
         - If the ray hits the vertex first, but the vertex's adjacent edges lie on one side of the ray only, add two points to the polygon: the edge intersection as well as the vertex, on the appropriate side.
         - If the ray hits the vertex first, and the vertex's adjacent edges block both sides, add the vertex only to the polygon
