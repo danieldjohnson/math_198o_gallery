@@ -75,7 +75,7 @@ function dragmove(d,i) {
   if(d[0]<0) d[0]=0;
   if(d[0]>width) d[0]=width;
   if(d[1]<0) d[1]=0;
-  if(d[1]>width) d[1]=height;
+  if(d[1]>height) d[1]=height;
 
   d3.select(this).attr("transform", function(d,i){
     return "translate(" + d + ")"
