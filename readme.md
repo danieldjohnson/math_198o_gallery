@@ -26,7 +26,7 @@ Thus this algorithm is O(n^2)
 
 ## Triangulation and 3 Coloring
 
-Since we know every simple polygon can be triangulated, and every triangulation must have at least 2 ears, we can simply iterate over all sets of three neighboring vertices, and if we find an ear, add it to our triangulation and repeat until we reduce the polygon to a triangle. This has worst-case performance of O(n^3), but is still very fast, since there are often many ears to the polygon and we remove a point at each iteration.
+We know every simple polygon must have at least two ears, so we triangulate the polygon by identifying and trimming ears until we are left with a triangle. This has worst-case performance of O(n^3), but is still very fast, since there are often many ears to the polygon and we remove a point at each iteration.
 
 As we remove ears, we maintain a stack of the ears we find. Once we have just a triangle remaining, we can color it arbitrarily, then walk back up the stack and color each ear as we go. This results in a 3-coloring of our vertices.
 
